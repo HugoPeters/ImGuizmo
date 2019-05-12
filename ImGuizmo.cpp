@@ -722,7 +722,7 @@ namespace ImGuizmo
        gContext.mHeight = height;
        gContext.mXMax = gContext.mX + gContext.mWidth;
        gContext.mYMax = gContext.mY + gContext.mXMax;
-      gContext.mDisplayRatio = width / height;
+       gContext.mDisplayRatio = width / height;
    }
 
    IMGUI_API void SetOrthographic(bool isOrthographic)
@@ -732,26 +732,55 @@ namespace ImGuizmo
 
    void SetDrawlist()
    {
-      gContext.mDrawList = ImGui::GetWindowDrawList();
+       //char windowId[32];
+       //memset(windowId, 0, sizeof(windowId));
+       //snprintf(windowId, sizeof(windowId), "gizmo###%i", ImGui::GetWindowViewport()->ID);
+
+       //ImGuiWindow* window = ImGui::FindWindowByName(windowId);
+
+       //// if a viewport was just created this solution won't work yet
+       //if (!window)
+       //    window = ImGui::GetCurrentWindow();
+
+       gContext.mDrawList = ImGui::FindWindowByName("gizmo")->DrawList;
    }
 
    void BeginFrame()
    {
-      ImGuiIO& io = ImGui::GetIO();
+      const ImU32 flags = ImGuiWindowFlags_NoTitleBar 
+                          | ImGuiWindowFlags_NoResize 
+                          | ImGuiWindowFlags_NoScrollbar 
+                          | ImGuiWindowFlags_NoInputs 
+                          | ImGuiWindowFlags_NoSavedSettings 
+                          | ImGuiWindowFlags_NoFocusOnAppearing 
+                          | ImGuiWindowFlags_NoBringToFrontOnFocus
+                          | ImGuiWindowFlags_NoDocking;
 
-      const ImU32 flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoBringToFrontOnFocus;
-      ImGui::SetNextWindowSize(io.DisplaySize);
-      ImGui::SetNextWindowPos(ImVec2(0, 0));
-      
-      ImGui::PushStyleColor(ImGuiCol_WindowBg, 0);
-      ImGui::PushStyleColor(ImGuiCol_Border, 0);
-      ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
-     
-      ImGui::Begin("gizmo", NULL, flags);
-      gContext.mDrawList = ImGui::GetWindowDrawList();
-      ImGui::End();
-      ImGui::PopStyleVar();
-      ImGui::PopStyleColor(2);
+
+      ImGuiContext* ctx = ImGui::GetCurrentContext();
+
+      for (int i = 0; i < ctx->Viewports.size(); ++i)
+      {
+          ImGuiViewport* viewport = ctx->Viewports[i];
+
+          ImGui::SetNextWindowViewport(viewport->ID);
+          ImGui::SetNextWindowSize(viewport->Size);
+          ImGui::SetNextWindowPos(viewport->Pos);
+
+          ImGui::PushStyleColor(ImGuiCol_WindowBg, 0);
+          ImGui::PushStyleColor(ImGuiCol_Border, 0);
+          ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+
+          //char windowId[32];
+          //memset(windowId, 0, sizeof(windowId));
+          //snprintf(windowId, sizeof(windowId), "gizmo###%i", viewport->ID);
+
+          ImGui::Begin("gizmo", NULL, flags);
+          ImGui::End();
+
+          ImGui::PopStyleVar();
+          ImGui::PopStyleColor(2);
+      }
    }
 
    bool IsUsing()
@@ -1860,6 +1889,9 @@ namespace ImGuizmo
 
    void Manipulate(const float *view, const float *projection, OPERATION operation, MODE mode, float *matrix, float *deltaMatrix, float *snap, float *localBounds, float *boundsSnap)
    {
+       gContext.mDrawList->PushClipRect(ImVec2(gContext.mX, gContext.mY)
+                                    , ImVec2(gContext.mX + gContext.mWidth, gContext.mY + gContext.mHeight));
+
       ComputeContext(view, projection, matrix, mode);
 
       // set delta to identity
@@ -1915,6 +1947,8 @@ namespace ImGuizmo
               break;
           }
       }
+
+      gContext.mDrawList->PopClipRect();
    }
 
    void DrawCube(const float *view, const float *projection, const float *matrix)
